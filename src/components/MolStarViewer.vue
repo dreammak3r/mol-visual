@@ -76,7 +76,6 @@ async function render() {
       layoutShowRemoteState: false,
       layoutShowControls: true,
       viewportShowAnimation: false,
-      collapseRightPanel: true,
     })
 
     await new Promise(r => setTimeout(r, 500))
