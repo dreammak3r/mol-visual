@@ -6,20 +6,23 @@
     </div>
 
     <!-- Sequence Panel -->
-    <div v-if="sequence.length" class="sequence-bar">
+    <div v-if="sequence.length" class="sequence-bar" ref="seqWrapRef">
       <div class="seq-scroll" ref="seqScrollRef">
-        <span
-          v-for="(res, i) in sequence"
-          :key="i"
-          class="seq-res"
-          :class="{
-            active: selectedResi === res.resi && selectedChain === res.chain,
-            highlight: hoveredResi === res.resi && hoveredChain === res.chain,
-          }"
-          @click="selectResidue(res.chain, res.resi, res.resn)"
-          @mouseenter="previewResidue(res.chain, res.resi, res.resn)"
-          @mouseleave="clearPreview"
-        >{{ oneLetter(res.resn) }}</span>
+        <div v-for="(seg, si) in seqSegments" :key="si" class="seg-group">
+          <span class="seg-num">{{ seg.start }}</span>
+          <span
+            v-for="(res, i) in seg.residues"
+            :key="i"
+            class="seq-res"
+            :class="{
+              active: selectedResi === res.resi && selectedChain === res.chain,
+              hovered: hoveredResi === res.resi && hoveredChain === res.chain,
+            }"
+            @click="selectResidue(res.chain, res.resi, res.resn)"
+            @mouseenter="hoverResidue(res.chain, res.resi, res.resn)"
+            @mouseleave="unhoverResidue"
+          >{{ oneLetter(res.resn) }}</span>
+        </div>
       </div>
     </div>
 
@@ -29,13 +32,12 @@
       <div v-show="!loading && !error" ref="viewerRef" class="mol-container"></div>
     </div>
 
-    <!-- Selection Info -->
     <div v-if="selectedInfo" class="sel-info">{{ selectedInfo }}</div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import $3Dmol from '3dmol'
 
 const res3to1 = {
@@ -45,8 +47,12 @@ const res3to1 = {
   SER: 'S', THR: 'T', TRP: 'W', TYR: 'Y', VAL: 'V',
   DA: 'A', DC: 'C', DG: 'G', DT: 'T',
   A: 'A', C: 'C', G: 'G', T: 'T', U: 'U',
+  MSE: 'M', UNK: '?',
 }
 function oneLetter(resn) { return res3to1[resn] || '?' }
+
+const HIGHLIGHT_COLOR = '0x4a7dff'
+const HOVER_COLOR = '0x88bbff'
 
 const styleSpecs = {
   'ball-stick': { stick: { radius: 0.15 }, sphere: { scale: 0.25 } },
@@ -69,6 +75,7 @@ const emit = defineEmits(['loaded', 'error'])
 
 const viewerRef = ref(null)
 const seqScrollRef = ref(null)
+const seqWrapRef = ref(null)
 const loading = ref(true)
 const error = ref('')
 const sequence = ref([])
@@ -80,22 +87,28 @@ const selectedInfo = ref('')
 let viewer = null
 let hasProtein = false
 
+const seqSegments = computed(() => {
+  const segs = []
+  const step = 10
+  for (let i = 0; i < sequence.value.length; i += step) {
+    segs.push({
+      start: sequence.value[i].resi,
+      residues: sequence.value.slice(i, i + step),
+    })
+  }
+  return segs
+})
+
 function getBaseStyle() {
   if (hasProtein) return { cartoon: { color: 'spectrum' } }
   const spec = styleSpecs[props.style]
   return spec || { stick: { radius: 0.15 } }
 }
 
-function isSmallMoleculeStyle() {
-  return !hasProtein && ['ribbon', 'surface'].includes(props.style)
-}
-
 function applyBaseStyle() {
   viewer.removeAllSurfaces()
-  const base = getBaseStyle()
-  viewer.setStyle({}, base)
+  viewer.setStyle({}, getBaseStyle())
   if (hasProtein) {
-    // ligand style on non-protein chains/models
     viewer.setStyle({ hetflag: true }, { stick: { radius: 0.3, colorscheme: 'Jmol' } })
   }
   if (!hasProtein && props.style === 'surface') {
@@ -103,40 +116,71 @@ function applyBaseStyle() {
   }
 }
 
+function highlightResidue(chain, resi, color) {
+  viewer.setStyle({ chain, resi }, {
+    cartoon: { color },
+    stick: { color, radius: 0.3 },
+  })
+  viewer.render()
+}
+
+function clearHighlight(chain, resi) {
+  // Reapply base style for this residue
+  if (hasProtein) {
+    viewer.setStyle({ chain, resi }, { cartoon: { color: 'spectrum' } })
+  } else {
+    viewer.setStyle({ chain, resi }, getBaseStyle())
+  }
+  // Reapply hetflag style for ligand
+  if (hasProtein) {
+    viewer.setStyle({ chain, resi, hetflag: true }, { stick: { radius: 0.3, colorscheme: 'Jmol' } })
+  }
+}
+
 function selectResidue(chain, resi, resn) {
-  // Toggle off if clicking same residue
   if (selectedResi.value === resi && selectedChain.value === chain) {
+    // Deselect
+    clearHighlight(selectedChain.value, selectedResi.value)
     selectedResi.value = null
     selectedChain.value = null
     selectedInfo.value = ''
-    applyBaseStyle()
     viewer.render()
     return
   }
+  // Clear previous selection
+  if (selectedResi.value !== null) {
+    clearHighlight(selectedChain.value, selectedResi.value)
+  }
   selectedResi.value = resi
   selectedChain.value = chain
-  selectedInfo.value = `Chain ${chain} ${oneLetter(resn) || ''} ${resn} ${resi}`
-  applyBaseStyle()
-  // Highlight selected by overlaying a stick representation
-  viewer.setStyle({ chain, resi }, { stick: { color: 'red', radius: 0.3 } })
-  viewer.render()
-  // Scroll sequence into view
-  nextTick(() => {
-    const el = seqScrollRef.value
-    if (!el) return
-    const target = el.querySelector('.seq-res.active')
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
-  })
+  selectedInfo.value = `Chain ${chain} · ${oneLetter(resn)} ${resn} · ${resi}`
+  highlightResidue(chain, resi, HIGHLIGHT_COLOR)
 }
 
-function previewResidue(chain, resi, resn) {
+function hoverResidue(chain, resi, resn) {
+  if (hoveredResi.value === resi && hoveredChain.value === chain) return
+  // Clear previous hover
+  if (hoveredResi.value !== null && !(hoveredResi.value === selectedResi.value && hoveredChain.value === selectedChain.value)) {
+    clearHighlight(hoveredChain.value, hoveredResi.value)
+  }
   hoveredResi.value = resi
   hoveredChain.value = chain
+  // Don't override selection color
+  if (!(selectedResi.value === resi && selectedChain.value === chain)) {
+    highlightResidue(chain, resi, HOVER_COLOR)
+  }
 }
 
-function clearPreview() {
+function unhoverResidue() {
+  if (hoveredResi.value !== null && !(hoveredResi.value === selectedResi.value && hoveredChain.value === selectedChain.value)) {
+    clearHighlight(hoveredChain.value, hoveredResi.value)
+  }
   hoveredResi.value = null
   hoveredChain.value = null
+  if (selectedResi.value !== null) {
+    highlightResidue(selectedChain.value, selectedResi.value, HIGHLIGHT_COLOR)
+  }
+  viewer.render()
 }
 
 function extractSequence() {
@@ -208,12 +252,10 @@ async function render() {
     viewer.zoomTo()
     viewer.render()
 
-    // Setup click handler for 3D selection
     viewer.setClickable({}, true, (atom) => {
       selectResidue(atom.chain || 'A', atom.resi, atom.resn)
     })
 
-    // Extract sequence for protein structures
     if (hasProtein) extractSequence()
 
     loading.value = false
@@ -261,37 +303,67 @@ watch(() => props.style, () => {
 .lib-name { font-weight: 600; font-size: 14px; color: #c8d0ff; }
 .lib-type { font-size: 11px; color: #6a6a8a; }
 
+/* Sequence Panel */
 .sequence-bar {
-  background: #0e0e20;
+  background: #0c0c1e;
   border-bottom: 1px solid #2a2a4a;
-  padding: 6px 8px;
-  max-height: 52px;
-  overflow-y: auto;
+  padding: 4px 8px;
+  max-height: 44px;
+  overflow: hidden;
 }
 .seq-scroll {
   display: flex;
-  gap: 1px;
-  flex-wrap: wrap;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a4a transparent;
+  padding: 2px 0;
+}
+.seg-group {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+.seg-num {
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  color: #4a4a6a;
+  min-width: 20px;
+  text-align: right;
+  padding-right: 2px;
+  user-select: none;
 }
 .seq-res {
   font-family: 'Courier New', monospace;
-  font-size: 11px;
-  font-weight: 600;
-  width: 18px;
-  height: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  width: 20px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 3px;
   cursor: pointer;
   color: #6a6a8a;
-  background: #1a1a30;
+  background: #12122a;
   flex-shrink: 0;
-  transition: all 0.1s;
+  transition: all 0.08s ease;
+  letter-spacing: -0.5px;
 }
-.seq-res:hover { background: #2a2a4a; color: #aaaacc; }
-.seq-res.highlight { background: #3a3a5a; color: #c8d0ff; }
-.seq-res.active { background: #7c8cf8; color: #fff; }
+.seq-res:hover {
+  background: #22224a;
+  color: #aaaadd;
+}
+.seq-res.hovered {
+  background: #2a3a6a;
+  color: #aaccff;
+}
+.seq-res.active {
+  background: #4a7dff;
+  color: #ffffff;
+  box-shadow: 0 0 6px rgba(74, 125, 255, 0.4);
+}
 
 .viewer-body {
   flex: 1;
@@ -307,11 +379,12 @@ watch(() => props.style, () => {
 .status.error { color: #f87171; }
 
 .sel-info {
-  padding: 6px 12px;
+  padding: 5px 12px;
   background: #1c1c36;
   border-top: 1px solid #2a2a4a;
   color: #7c8cf8;
   font-size: 12px;
   font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
 }
 </style>
