@@ -112,8 +112,6 @@ async function render() {
 
     loading.value = false
     emit('loaded')
-
-    // Panels: right hidden via collapseRightPanel option, top starts visible (no Mol* option for initial hide)
   } catch (e) {
     loading.value = false
     error.value = e.message || 'Mol* render failed'
