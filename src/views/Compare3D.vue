@@ -60,13 +60,17 @@
       >{{ s.label }}</button>
     </div>
 
-    <div class="grid-2col">
+    <div class="grid-3col">
       <ThreeDmolViewer
         :sdf-path="selectedMol?.sdfPath || ''"
         :pdb-path="selectedProtein?.pdbPath || ''"
         :style="selectedMol && !selectedProtein ? selectedStyle : 'ribbon'"
       />
       <MolStarViewer
+        :sdf-path="selectedMol?.sdfPath || ''"
+        :pdb-path="selectedProtein?.pdbPath || ''"
+      />
+      <MolStarCustom
         :sdf-path="selectedMol?.sdfPath || ''"
         :pdb-path="selectedProtein?.pdbPath || ''"
       />
@@ -79,7 +83,8 @@
           <tr>
             <th>Feature</th>
             <th>3Dmol.js</th>
-            <th>Mol*</th>
+            <th>Mol* (CDN + React)</th>
+            <th>Mol* Custom (Vue UI)</th>
           </tr>
         </thead>
         <tbody>
@@ -87,26 +92,43 @@
             <td>Rendering</td>
             <td>WebGL (Three.js)</td>
             <td>Custom WebGL + React UI</td>
+            <td>Custom WebGL + Vue UI</td>
           </tr>
           <tr>
-            <td>Data Format</td>
-            <td>MOL/SDF/PDB via RDKit</td>
-            <td>SDF/PDB</td>
+            <td>Integration</td>
+            <td>npm package</td>
+            <td>CDN bundle</td>
+            <td>npm package</td>
           </tr>
           <tr>
-            <td>Bundle Size</td>
-            <td>~800 KB</td>
-            <td>~3 MB (CDN)</td>
+            <td>Framework Dep</td>
+            <td>None</td>
+            <td>React (in bundle)</td>
+            <td>None</td>
+          </tr>
+          <tr>
+            <td>UI Control</td>
+            <td>Full (custom)</td>
+            <td>Limited (init options)</td>
+            <td>Full (Vue components)</td>
+          </tr>
+          <tr>
+            <td>Load PDB</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td>Load SDF</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td>Yes</td>
           </tr>
           <tr>
             <td>Style Switching</td>
             <td>Real-time setStyle</td>
             <td>Preset-based</td>
-          </tr>
-          <tr>
-            <td>Interactivity</td>
-            <td>Rotate / Zoom / Click</td>
-            <td>Rotate / Zoom / Select</td>
+            <td>PluginContext API</td>
           </tr>
         </tbody>
       </table>
@@ -118,6 +140,7 @@
 import { ref } from 'vue'
 import ThreeDmolViewer from '../components/ThreeDmolViewer.vue'
 import MolStarViewer from '../components/MolStarViewer.vue'
+import MolStarCustom from '../components/MolStarCustom.vue'
 import { molecules, proteins } from '../data/molecules.js'
 
 const selectedMol = ref(molecules[0])
@@ -246,15 +269,21 @@ const styles = [
   color: #7c8cf8;
 }
 
-.grid-2col {
+.grid-3col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-bottom: 32px;
 }
 
-@media (max-width: 900px) {
-  .grid-2col {
+@media (max-width: 1200px) {
+  .grid-3col {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 800px) {
+  .grid-3col {
     grid-template-columns: 1fr;
   }
 }
