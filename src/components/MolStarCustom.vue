@@ -8,8 +8,8 @@
     <template v-if="!loading && !err">
       <Transition name="slide">
         <div class="float-seq glass" v-if="showSeq" ref="seqPanelRef">
-        <div class="seq-scroll">
-          <div v-for="(ch, ci) in chains" :key="ci" class="chain-row">
+        <div class="seq-scroll" @mousemove="onSeqMove" @mouseleave="clearHover">
+          <div v-for="(ch, ci) in chains" :key="ci" class="chain-row" @mouseleave="clearHover">
             <div class="residues">
               <span
                 v-for="(r, ri) in ch.residues"
@@ -21,10 +21,10 @@
                   class="residue"
                   :class="{ active: r.highlighted, hover: hoveredRes === r }"
                   :ref="(el) => { if (el) residueEls.set(r, el) }"
+                  :data-ri="ri"
+                  :data-ci="ci"
                   @click="focusResidue(ch, r)"
                   @mousedown.prevent="startRange(ch, r)"
-                  @mouseenter="onResEnter(ch, r)"
-                  @mouseleave="onResLeave(r)"
                 >{{ r.code }}</span>
               </span>
             </div>
@@ -76,8 +76,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick, watch, reactive } from 'vue'
-import { ColorNames } from 'molstar/lib/mol-util/color/names.js'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, reactive } from 'vue'
 import { StructureElement, StructureProperties, Unit } from 'molstar/lib/mol-model/structure.js'
 import { OrderedSet } from 'molstar/lib/mol-data/int.js'
 import { StateObjectRef } from 'molstar/lib/mol-state/index.js'
@@ -85,6 +84,17 @@ import { StateObjectRef } from 'molstar/lib/mol-state/index.js'
 const props = defineProps({
   pdbPath: { type: String, default: '' },
   sdfPath: { type: String, default: '' },
+})
+
+const emit = defineEmits(['loaded', 'error', 'residue-click'])
+
+const displayMode = computed(() => {
+  const hasPDB = !!props.pdbPath
+  const hasSDF = !!props.sdfPath
+  if (hasPDB && hasSDF) return 'complex'
+  if (hasPDB) return 'pdb'
+  if (hasSDF) return 'sdf'
+  return 'empty'
 })
 
 const styles = [
@@ -141,7 +151,6 @@ async function init() {
 
     const parent = viewerParent.value
     const canvas = document.createElement('canvas')
-    canvas.id = 'msc-canvas'
     canvas.style.display = 'block'
     canvas.style.width = '100%'
     canvas.style.height = '100%'
@@ -160,6 +169,7 @@ async function init() {
 
     await loadStructure()
     loading.value = false
+    emit('loaded')
 
     try {
       plugin.behaviors.interaction.click.subscribe(({ current }) => {
@@ -205,6 +215,7 @@ async function init() {
   } catch (e) {
     loading.value = false
     err.value = e?.message || String(e)
+    emit('error', err.value)
   }
 }
 
@@ -222,6 +233,7 @@ async function loadStructure() {
       currentStyle.value = 'polymer-cartoon'
       await plugin.builders.structure.hierarchy.applyPreset(traj, 'default', {
         representationPreset: 'polymer-cartoon',
+        representationPresetParams: { ignoreLight: true },
       })
     }
 
@@ -233,6 +245,7 @@ async function loadStructure() {
       if (!props.pdbPath) currentStyle.value = 'atomic-detail'
       await plugin.builders.structure.hierarchy.applyPreset(traj, 'default', {
         representationPreset: sdfStyle,
+        representationPresetParams: { ignoreLight: true },
       })
     }
 
@@ -545,6 +558,7 @@ async function focusResidue(ch, res) {
       plugin.managers.interactivity.lociHighlights.clearHighlights()
       plugin.managers.structure.focus.setFromLoci(loci)
       plugin.managers.camera.focusLoci(loci, { extraRadius: 4, durationMs: 250 })
+      emit('residue-click', { compId: res.compId, seqId: res.seqId, authSeqId: res.authSeqId, chainId: ch.id })
       return
     }
   }
@@ -641,37 +655,51 @@ function lociForResidue(ch, res) {
   }])
 }
 
-function onResEnter(ch, r) {
-  if (rangeStart && rangeChain && rangeChain === ch) {
-    const residues = ch.residues
-    const i0 = residues.indexOf(rangeStart)
-    const i1 = residues.indexOf(r)
-    if (i0 < 0 || i1 < 0) return
-    const lo = Math.min(i0, i1)
-    const hi = Math.max(i0, i1)
-    for (const r2 of residues) r2.highlighted = false
-    for (let i = lo; i <= hi; i++) residues[i].highlighted = true
-
-    const loci = lociForRange(ch, i0, i1)
-    if (loci && plugin) {
-      plugin.managers.interactivity.lociHighlights.highlightOnly({ loci })
-    }
-  } else {
-    hoveredRes.value = r
-    const loci = lociForResidue(ch, r)
-    if (loci && plugin) {
-      plugin.behaviors.interaction.hover.next({ current: { loci }, buttons: 0, button: 0, modifiers: 0 })
-    }
-    scrollToResidue(r)
-  }
-}
-
-function onResLeave(r) {
+function clearHover() {
   if (rangeStart) return
-  if (hoveredRes.value === r) {
+  if (hoveredRes.value !== null) {
     hoveredRes.value = null
     if (plugin) plugin.managers.interactivity.lociHighlights.clearHighlights()
   }
+}
+
+function onSeqMove(e) {
+  if (!plugin) return
+
+  if (rangeStart) {
+    const el = e.target.closest('.residue')
+    if (!el) return
+    const ri = +el.getAttribute('data-ri')
+    const ci = +el.getAttribute('data-ci')
+    if (isNaN(ri) || isNaN(ci) || ci >= chains.length || ri >= chains[ci].residues.length) return
+    if (rangeChain !== chains[ci]) return
+
+    const residues = chains[ci].residues
+    const i0 = residues.indexOf(rangeStart)
+    if (i0 < 0) return
+    const lo = Math.min(i0, ri)
+    const hi = Math.max(i0, ri)
+    for (const r of residues) r.highlighted = false
+    for (let i = lo; i <= hi; i++) residues[i].highlighted = true
+
+    const loci = lociForRange(chains[ci], i0, ri)
+    if (loci) plugin.managers.interactivity.lociHighlights.highlightOnly({ loci })
+    return
+  }
+
+  const el = e.target.closest('.residue')
+  if (!el) { clearHover(); return }
+
+  const ri = +el.getAttribute('data-ri')
+  const ci = +el.getAttribute('data-ci')
+  if (isNaN(ri) || isNaN(ci) || ci >= chains.length || ri >= chains[ci].residues.length) { clearHover(); return }
+
+  const r = chains[ci].residues[ri]
+  if (hoveredRes.value === r) return
+  hoveredRes.value = r
+  const loci = lociForResidue(chains[ci], r)
+  if (loci) plugin.behaviors.interaction.hover.next({ current: { loci }, buttons: 0, button: 0, modifiers: 0 })
+  scrollToResidue(r)
 }
 
 function resetCamera() {
@@ -720,6 +748,8 @@ onBeforeUnmount(() => {
     plugin = null
   }
 })
+
+defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
 </script>
 
 <style scoped>
