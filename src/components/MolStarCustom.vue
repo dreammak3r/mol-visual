@@ -372,6 +372,11 @@ async function loadStructure() {
       await nextTick()
       extractSequence()
     }
+
+    if (themes[currentTheme.value].ignoreLight && plugin) {
+      await nextTick()
+      await switchStyle(currentStyle.value)
+    }
   } catch (e) {
     err.value = 'Load failed: ' + (e?.message || e)
   }
