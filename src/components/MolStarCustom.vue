@@ -1,5 +1,5 @@
 <template>
-  <div class="molstar-custom" @mousemove="onMouseMove" @mouseleave="onMouseLeaveRoot">
+  <div class="molstar-custom" :style="themes[currentTheme].vars" @mousemove="onMouseMove" @mouseleave="onMouseLeaveRoot">
     <div ref="viewerParent" class="canvas-fill"></div>
 
     <div v-if="loading" class="overlay">Loading Mol* PluginContext...</div>
@@ -9,24 +9,23 @@
       <Transition name="slide">
         <div class="float-seq glass" v-if="showSeq" ref="seqPanelRef">
         <div class="seq-scroll" @mousemove="onSeqMove" @mouseleave="clearHover">
-          <div v-for="(ch, ci) in chains" :key="ci" class="chain-row" @mouseleave="clearHover">
+          <div class="chain-row">
             <div class="residues">
-              <span
-                v-for="(r, ri) in ch.residues"
-                :key="ri"
-                class="res-wrap"
-              >
-                <span v-if="showSeqNum(ri, ch.residues)" class="seq-num">{{ r.authSeqId }}</span>
-                <span
-                  class="residue"
-                  :class="{ active: r.highlighted, hover: hoveredRes === r }"
+              <template v-for="(ch, ci) in chains" :key="ci">
+                <template v-if="ci > 0"><span class="chain-gap"></span></template>
+                <span v-for="(r, ri) in ch.residues" :key="ci + '-' + ri" class="res-wrap">
+                  <span v-if="showSeqNum(ri, ch.residues)" class="seq-num">{{ r.authSeqId }}{{ r.insCode }}</span>
+                  <span
+                    class="residue"
+                  :class="{ active: r.highlighted, hover: hoveredRes === r, muted: r.missing }"
                   :ref="(el) => { if (el) residueEls.set(r, el) }"
                   :data-ri="ri"
                   :data-ci="ci"
                   @click="focusResidue(ch, r)"
                   @mousedown.prevent="startRange(ch, r)"
-                >{{ r.code }}</span>
+                >{{ '\u200b' + r.code + '\u200b' }}</span>
               </span>
+              </template>
             </div>
           </div>
         </div>
@@ -34,8 +33,7 @@
       </Transition>
 
       <div class="res-tooltip glass" v-if="hoveredRes" :style="{ top: tooltipTopVal + 'px' }">
-        <b>{{ hoveredRes.compId }} {{ hoveredRes.authSeqId }}</b>
-        <span class="tip-sub">{{ hoveredRes.chainId || chains[0]?.id }}</span>
+        <b>{{ hoveredRes.chainId || chains[0]?.id }}</b> | <b>{{ hoveredRes.compId }}</b><template v-if="hoveredRes.code && hoveredRes.code.length === 1"> ({{ hoveredRes.code }})</template> <b>{{ hoveredRes.authSeqId }}{{ hoveredRes.insCode }}</b><template v-if="hoveredRes.authSeqId !== hoveredRes.seqId"> <span class="tip-auth">[auth {{ hoveredRes.authSeqId }}]</span></template>
       </div>
 
       <div class="float-bottom glass" :class="{ raised: barVisible }">
@@ -45,7 +43,7 @@
 
         <div class="bar-divider"></div>
 
-        <button class="bar-btn seq-toggle" :class="{ on: showSeq }" @click="showSeq = !showSeq" title="Toggle sequence panel">
+        <button class="bar-btn seq-toggle" :class="{ on: showSeq }" @click="showSeq = chains.length ? !showSeq : false" title="Toggle sequence panel">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
             <circle cx="6" cy="8" r="2.2"/><line x1="8.2" y1="8" x2="18" y2="8"/>
             <circle cx="6" cy="16" r="2.2"/><line x1="8.2" y1="16" x2="18" y2="16"/>
@@ -64,10 +62,16 @@
         >
           <span v-html="s.icon"></span>
         </button>
+
+        <div class="bar-divider"></div>
+
+        <button class="bar-btn" @click="cycleTheme" title="Cycle theme">
+          <span v-html="themes[currentTheme].icon"></span>
+        </button>
       </div>
 
-      <div class="bar-arrow" :class="{ hidden: barVisible }" @click="barVisible = true">
-        <svg width="20" height="10" viewBox="0 0 20 10" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="1.5">
+      <div class="bar-arrow" :class="{ down: barVisible }" @click="barVisible = !barVisible">
+        <svg width="20" height="10" viewBox="0 0 20 10" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M4 7l6-4 6 4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
@@ -84,9 +88,10 @@ import { StateObjectRef } from 'molstar/lib/mol-state/index.js'
 const props = defineProps({
   pdbPath: { type: String, default: '' },
   sdfPath: { type: String, default: '' },
+  theme: { type: Number, default: 0 },
 })
 
-const emit = defineEmits(['loaded', 'error', 'residue-click'])
+const emit = defineEmits(['loaded', 'error', 'residue-click', 'theme-change'])
 
 const displayMode = computed(() => {
   const hasPDB = !!props.pdbPath
@@ -116,6 +121,105 @@ const styles = [
   },
 ]
 const currentStyle = ref('polymer-cartoon')
+const currentTheme = ref(props.theme >= 0 && props.theme < 3 ? props.theme : 0)
+const themes = [
+  {
+    name: 'Light', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 2v2m0 16v2m-10-10H0m20 0h4M3.5 3.5l1.4 1.4m14.2 14.2l1.4 1.4M3.5 20.5l1.4-1.4m14.2-14.2l1.4-1.4"/></svg>',
+    vars: {
+      '--bg': '#f0f0f0',
+      '--glass-bg': 'rgba(255,255,255,0.72)',
+      '--glass-blur': '10px',
+      '--glass-border': '1px solid rgba(255,255,255,0.55)',
+      '--glass-shadow': '0 2px 12px rgba(0,0,0,0.04)',
+      '--accent': '#4a5af0',
+      '--accent-light': '#7c8cf8',
+      '--accent-active': '#5b7bf0',
+      '--accent-bg': 'rgba(74,106,240,0.1)',
+      '--accent-border': 'rgba(74,106,240,0.3)',
+      '--text': '#2a2a3a',
+      '--text-secondary': '#555',
+      '--text-muted': '#bbb',
+      '--text-active': '#fff',
+      '--res-hover-bg': '#e8ecff',
+      '--res-hover-outline': 'rgba(124,140,248,0.35)',
+      '--btn-color': 'rgba(0,0,0,0.55)',
+      '--btn-hover-bg': 'rgba(0,0,0,0.06)',
+      '--btn-hover-color': '#333',
+      '--divider': 'rgba(0,0,0,0.1)',
+      '--arrow-stroke': 'rgba(0,0,0,0.4)',
+      '--overlay-text': '#999',
+      '--err-color': '#d43',
+      '--tip-sub': '#666',
+      '--tip-auth': '#888',
+    },
+    canvas: { bg: 0xf0f0f0, x: 0xc08080, y: 0x80c080, z: 0x7c8cf8, origin: 0xd0d0d0 },
+    ignoreLight: false,
+  },
+  {
+    name: 'Dusk', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
+    vars: {
+      '--bg': '#141420',
+      '--glass-bg': 'rgba(28,28,46,0.82)',
+      '--glass-blur': '12px',
+      '--glass-border': '1px solid rgba(255,255,255,0.08)',
+      '--glass-shadow': '0 2px 16px rgba(0,0,0,0.4)',
+      '--accent': '#4dd0e1',
+      '--accent-light': '#80deea',
+      '--accent-active': '#26c6da',
+      '--accent-bg': 'rgba(77,208,225,0.14)',
+      '--accent-border': 'rgba(77,208,225,0.3)',
+      '--text': '#e8e8f0',
+      '--text-secondary': '#b0b0c0',
+      '--text-muted': '#56566e',
+      '--text-active': '#141420',
+      '--res-hover-bg': 'rgba(77,208,225,0.18)',
+      '--res-hover-outline': 'rgba(77,208,225,0.35)',
+      '--btn-color': 'rgba(220,220,240,0.52)',
+      '--btn-hover-bg': 'rgba(220,220,240,0.08)',
+      '--btn-hover-color': '#e8e8f0',
+      '--divider': 'rgba(220,220,240,0.08)',
+      '--arrow-stroke': 'rgba(220,220,240,0.42)',
+      '--overlay-text': '#808098',
+      '--err-color': '#ef5350',
+      '--tip-sub': '#a0a0b8',
+      '--tip-auth': '#7c7c96',
+    },
+    canvas: { bg: 0x141420, x: 0x906565, y: 0x659065, z: 0x4dd0e1, origin: 0x404055 },
+    ignoreLight: true,
+  },
+  {
+    name: 'Forest', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 13h4l-3 7h14l-3-7h4L12 2z" stroke-linejoin="round"/></svg>',
+    vars: {
+      '--bg': '#f2f7f2',
+      '--glass-bg': 'rgba(242,247,242,0.75)',
+      '--glass-blur': '10px',
+      '--glass-border': '1px solid rgba(100,160,100,0.25)',
+      '--glass-shadow': '0 2px 12px rgba(0,0,0,0.04)',
+      '--accent': '#2e7d32',
+      '--accent-light': '#4caf50',
+      '--accent-active': '#388e3c',
+      '--accent-bg': 'rgba(46,125,50,0.1)',
+      '--accent-border': 'rgba(46,125,50,0.3)',
+      '--text': '#2a3a2a',
+      '--text-secondary': '#556655',
+      '--text-muted': '#aabbab',
+      '--text-active': '#fff',
+      '--res-hover-bg': '#e6f0e6',
+      '--res-hover-outline': 'rgba(76,175,80,0.3)',
+      '--btn-color': 'rgba(40,60,40,0.5)',
+      '--btn-hover-bg': 'rgba(40,60,40,0.06)',
+      '--btn-hover-color': '#2a3a2a',
+      '--divider': 'rgba(40,60,40,0.1)',
+      '--arrow-stroke': 'rgba(40,60,40,0.4)',
+      '--overlay-text': '#888',
+      '--err-color': '#c62828',
+      '--tip-sub': '#667566',
+      '--tip-auth': '#889988',
+    },
+    canvas: { bg: 0xf2f7f2, x: 0x809080, y: 0x609060, z: 0x4caf50, origin: 0xd0e0d0 },
+    ignoreLight: false,
+  },
+]
 const showSeq = ref(false)
 const chains = reactive([])
 const hoveredRes = ref(null)
@@ -161,9 +265,26 @@ async function init() {
     }
 
     if (plugin.canvas3d) {
+      applyCanvasTheme()
       plugin.canvas3d.setProps({
         transparentBackground: false,
-        renderer: { backgroundColor: 0xf0f0f0 },
+        cameraHelper: {
+          axes: {
+            name: 'on',
+            params: {
+              alpha: 0.7,
+              scale: 0.4,
+              radiusScale: 0.05,
+              showPlanes: false,
+              showLabels: true,
+              labelOpacity: 0.6,
+              labelScale: 0.2,
+              location: 'bottom-left',
+              locationOffsetX: 8,
+              locationOffsetY: 8,
+            },
+          },
+        },
       }, true)
     }
 
@@ -233,7 +354,6 @@ async function loadStructure() {
       currentStyle.value = 'polymer-cartoon'
       await plugin.builders.structure.hierarchy.applyPreset(traj, 'default', {
         representationPreset: 'polymer-cartoon',
-        representationPresetParams: { ignoreLight: true },
       })
     }
 
@@ -245,7 +365,6 @@ async function loadStructure() {
       if (!props.pdbPath) currentStyle.value = 'atomic-detail'
       await plugin.builders.structure.hierarchy.applyPreset(traj, 'default', {
         representationPreset: sdfStyle,
-        representationPresetParams: { ignoreLight: true },
       })
     }
 
@@ -260,11 +379,13 @@ async function loadStructure() {
 
 function reprTypeParams() {
   const h = plugin.managers.structure.component.state.options.hydrogens
+  const mat = plugin.managers.structure.component.state.options.materialStyle
   return {
     quality: plugin.managers.structure.component.state.options.visualQuality,
     ignoreHydrogens: h !== 'all',
     ignoreHydrogensVariant: h === 'only-polar' ? 'non-polar' : 'all',
-    ignoreLight: true,
+    ignoreLight: themes[currentTheme.value].ignoreLight,
+    material: mat,
   }
 }
 
@@ -346,6 +467,29 @@ async function switchStyle(id) {
   }
 }
 
+function applyCanvasTheme() {
+  if (!plugin?.canvas3d) return
+  const c = themes[currentTheme.value].canvas
+  plugin.canvas3d.setProps({
+    renderer: { backgroundColor: c.bg },
+    cameraHelper: {
+      axes: {
+        params: {
+          colorX: c.x, colorY: c.y, colorZ: c.z, originColor: c.origin,
+          labelColorX: c.x, labelColorY: c.y, labelColorZ: c.z,
+        },
+      },
+    },
+  })
+  plugin.canvas3d.requestDraw()
+}
+
+function cycleTheme() {
+  currentTheme.value = (currentTheme.value + 1) % themes.length
+  applyCanvasTheme()
+  emit('theme-change', currentTheme.value)
+}
+
 function extractSequence() {
   if (!plugin) return
   const structures = plugin.managers.structure.hierarchy.current.structures
@@ -354,7 +498,6 @@ function extractSequence() {
   if (!structure) return
 
   chains.length = 0
-  const seenEntities = new Set()
 
   for (const unit of structure.units) {
     if (!Unit.isAtomic(unit)) continue
@@ -363,9 +506,6 @@ function extractSequence() {
     const l = StructureElement.Location.create(structure, unit, unit.elements[0])
     const asymId = StructureProperties.chain.label_asym_id(l)
     const entityKey = StructureProperties.entity.key(l)
-
-    if (seenEntities.has(entityKey)) continue
-    seenEntities.add(entityKey)
 
     const entitySeq = unit.model.sequence.byEntityKey[entityKey]
     if (!entitySeq) {
@@ -382,14 +522,18 @@ function extractSequence() {
         const seqId = h.residues.label_seq_id.value(ri)
         let authSeqId = seqId
         try { authSeqId = h.residues.auth_seq_id.value(ri) } catch { /* keep seqId */ }
+        let insCode = ''
+        try { insCode = h.residues.pdbx_PDB_ins_code.value(ri) || '' } catch { /* ignore */ }
         const code = oneLetterCode(compId)
-        residues.push({ compId, seqId, authSeqId, code: code || 'X', highlighted: false, unit, ri, chainId: asymId })
+        residues.push({ compId, seqId, authSeqId, insCode, code: code || 'X', highlighted: false, missing: false, unit, ri, chainId: asymId })
       }
       if (residues.length) chains.push({ id: asymId, residues })
       continue
     }
 
     const seq = entitySeq.sequence
+    const missingResidues = unit.model.properties?.missingResidues
+    const modelNum = unit.model.modelNum
     const residues = []
     for (let si = 0; si < seq.length; si++) {
       const compId = seq.compId.value(si)
@@ -397,7 +541,12 @@ function extractSequence() {
       let code = ''
       try { code = seq.code.value(si) } catch { code = oneLetterCode(compId) || 'X' }
       if (!code) code = 'X'
-      residues.push({ compId, seqId, authSeqId: seqId, code, highlighted: false, unit, seqIndex: si, chainId: asymId })
+      const isMissing = !!missingResidues?.has(modelNum, asymId, seqId)
+      residues.push({
+        compId, seqId, authSeqId: seqId, insCode: '', code,
+        highlighted: false, missing: isMissing,
+        unit: isMissing ? null : unit, seqIndex: si, chainId: asymId,
+      })
     }
     if (residues.length) chains.push({ id: asymId, residues })
   }
@@ -519,7 +668,7 @@ function collectResidueElements(unit, seqId) {
 }
 
 async function focusResidue(ch, res) {
-  if (!plugin) return
+  if (!plugin || res.missing) return
   rangeStart = null
   rangeChain = null
 
@@ -695,6 +844,7 @@ function onSeqMove(e) {
   if (isNaN(ri) || isNaN(ci) || ci >= chains.length || ri >= chains[ci].residues.length) { clearHover(); return }
 
   const r = chains[ci].residues[ri]
+  if (r.missing) { clearHover(); return }
   if (hoveredRes.value === r) return
   hoveredRes.value = r
   const loci = lociForResidue(chains[ci], r)
@@ -709,15 +859,31 @@ function resetCamera() {
 
 watch(() => props.pdbPath, () => { if (plugin) loadStructure() })
 watch(() => props.sdfPath, () => { if (plugin) loadStructure() })
-watch(showSeq, async (v) => {
-  if (v) { await nextTick(); updateTooltipTop() }
+watch(() => props.theme, (t) => {
+  if (t >= 0 && t < themes.length && t !== currentTheme.value) {
+    currentTheme.value = t
+    applyCanvasTheme()
+  }
 })
 watch(() => chains.length, () => { nextTick().then(updateTooltipTop) })
+
+let seqObserver = null
 
 function updateTooltipTop() {
   const el = seqPanelRef.value
   if (el) tooltipTopVal.value = el.offsetTop + Math.min(el.scrollHeight, el.offsetHeight) + 6
 }
+
+function initSeqObserver() {
+  seqObserver?.disconnect()
+  const el = seqPanelRef.value
+  if (!el) return
+  seqObserver = new ResizeObserver(() => requestAnimationFrame(updateTooltipTop))
+  seqObserver.observe(el)
+}
+
+watch(showSeq, (v) => { if (v) nextTick().then(initSeqObserver) })
+watch(() => chains.length, () => { nextTick().then(initSeqObserver) })
 
 function scrollToResidue(r) {
   if (!seqPanelRef.value) return
@@ -743,13 +909,15 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  seqObserver?.disconnect()
+  window.removeEventListener('resize', updateTooltipTop)
   if (plugin) {
     try { plugin.dispose() } catch (_) {}
     plugin = null
   }
 })
 
-defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
+defineExpose({ resetCamera, switchStyle, displayMode, currentStyle, currentTheme, cycleTheme })
 </script>
 
 <style scoped>
@@ -757,33 +925,30 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #f0f0f0;
+  background: var(--bg);
 }
 
-/* canvas fills entire container */
 .canvas-fill {
   position: absolute;
   inset: 0;
 }
 
-/* loading / error overlay */
 .overlay {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  color: #999; font-size: 14px; background: #f0f0f0;
+  color: var(--overlay-text); font-size: 14px; background: var(--bg);
   z-index: 5;
 }
-.overlay.err { color: #d43; }
+.overlay.err { color: var(--err-color); }
 
-/* -------- glassmorphism floating bars -------- */
 .glass {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.55);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 /* sequence panel */
@@ -791,7 +956,7 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
   position: absolute; top: 10px; left: 10px; right: 10px;
   max-height: 96px; overflow: auto;
   padding: 6px 10px 10px;
-  border-radius: 10px;
+  border-radius: 14px;
   z-index: 9;
 }
 .float-seq::-webkit-scrollbar { width: 4px; }
@@ -799,18 +964,19 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
 .float-seq::-webkit-scrollbar-thumb {
   background: transparent; border-radius: 2px; transition: background 0.3s;
 }
-.float-seq:hover::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
-.float-seq::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.28); }
+.float-seq:hover::-webkit-scrollbar-thumb { background: var(--divider); }
+.float-seq::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 .slide-enter-active, .slide-leave-active {
-  transition: transform 0.25s ease;
+  transition: transform 0.35s ease;
 }
 .slide-enter-from, .slide-leave-to {
   transform: translateY(-120px);
 }
 
-.seq-scroll { display: flex; flex-direction: column; gap: 4px; }
-.chain-row { display: flex; align-items: flex-end; gap: 0; position: relative; }
+.seq-scroll { display: flex; flex-direction: column; }
+.chain-row { display: flex; align-items: flex-end; flex-wrap: wrap; }
+.chain-gap { display: inline-block; width: 8px; flex-shrink: 0; }
 .residues { display: flex; gap: 0; flex-wrap: wrap; align-items: flex-end; }
 
 .res-wrap {
@@ -821,42 +987,45 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
 }
 .seq-num {
   font-size: 8px; font-family: 'SF Mono', 'Cascadia Code', monospace;
-  color: #7c8cf8; line-height: 1; margin-bottom: 1px;
+  color: var(--accent-light); line-height: 1; margin-bottom: 1px;
   user-select: none; pointer-events: none;
   font-weight: 600;
 }
 .residue {
   font-size: 11px; font-family: 'SF Mono', 'Cascadia Code', monospace;
-  padding: 1px 2px; border-radius: 2px; cursor: pointer;
-  color: #555; line-height: 1.3;
+  padding: 1px 3px; border-radius: 3px; cursor: pointer;
+  color: var(--text-secondary); line-height: 1.3;
   transition: background 0.1s, color 0.1s;
   min-width: 14px; text-align: center;
 }
-.residue:hover { background: #d4d4e8; color: #222; }
 .residue.hover {
-  background: #e8ecff; color: #333;
-  outline: 1px solid rgba(124,140,248,0.35);
+  background: var(--res-hover-bg); color: var(--btn-hover-color);
+  outline: 1px solid var(--res-hover-outline);
   outline-offset: -1px;
 }
-.residue.active { background: #5b7bf0; color: #fff; }
+.residue.active { background: var(--accent-active); color: var(--text-active); }
+.residue.muted { color: var(--text-muted); font-style: italic; cursor: default; }
+.residue.muted:hover { background: transparent; color: var(--text-muted); }
+.residue.muted.active { background: transparent; color: var(--text-muted); }
 
 .res-tooltip {
   position: absolute; right: 10px;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: 14px;
   z-index: 11;
   font-size: 11px; line-height: 1.5;
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
-  color: #2a2a3a;
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.55);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  color: var(--text);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
-.tip-sub { color: #666; margin-left: 8px; font-size: 10px; }
+.tip-sub { color: var(--tip-sub); margin-left: 8px; font-size: 10px; }
+.tip-auth { color: var(--tip-auth); font-size: 10px; }
 
 /* bottom bar — auto-width, centered */
 .float-bottom {
@@ -864,7 +1033,7 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
   transform: translateX(-50%) translateY(50px);
   display: flex; align-items: center; gap: 4px;
   padding: 6px 10px;
-  border-radius: 10px;
+  border-radius: 14px;
   z-index: 10;
   white-space: nowrap;
   opacity: 0;
@@ -877,38 +1046,42 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle })
   pointer-events: auto;
 }
 .bar-arrow {
-  position: absolute; bottom: 4px; left: 50%;
-  transform: translateX(-50%);
+  position: absolute; bottom: 68px; left: 50%;
   z-index: 10; cursor: pointer;
-  opacity: 1; transition: opacity 0.2s ease;
+  color: var(--arrow-stroke);
+  transform: translateX(-50%) translateY(50px);
+  transition: transform 0.35s ease, opacity 0.25s ease;
   display: flex; align-items: center; justify-content: center;
-  padding: 2px 8px;
+  opacity: 0.55;
 }
-.bar-arrow.hidden { opacity: 0; pointer-events: none; }
+.bar-arrow.down {
+  transform: translateX(-50%) translateY(0) rotate(180deg);
+}
+.bar-arrow:hover { opacity: 1; }
 .bar-divider {
   width: 1px; height: 22px;
-  background: rgba(0,0,0,0.1);
+  background: var(--divider);
   margin: 0 2px;
 }
 .bar-btn {
   display: flex; align-items: center; justify-content: center;
   width: 32px; height: 32px;
   background: transparent; border: 1px solid transparent;
-  color: rgba(0,0,0,0.55); cursor: pointer;
-  border-radius: 8px;
+  color: var(--btn-color); cursor: pointer;
+  border-radius: 10px;
   font-family: inherit; font-size: 12px;
   transition: all 0.15s;
   flex-shrink: 0;
 }
-.bar-btn:hover { background: rgba(0,0,0,0.06); color: #333; }
+.bar-btn:hover { background: var(--btn-hover-bg); color: var(--btn-hover-color); }
 .bar-btn.style-btn.active {
-  background: rgba(74,106,240,0.1);
-  border-color: rgba(74,106,240,0.3);
-  color: #4a5af0;
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 .seq-toggle.on {
-  background: rgba(74,106,240,0.1);
-  border-color: rgba(74,106,240,0.3);
-  color: #4a5af0;
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 </style>
