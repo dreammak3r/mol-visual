@@ -33,7 +33,7 @@
       </Transition>
 
       <div class="res-tooltip glass" v-if="hoveredRes" :style="{ top: tooltipTopVal + 'px' }">
-        <b>{{ hoveredRes.chainId || chains[0]?.id }}</b> | <b>{{ hoveredRes.compId }}</b><template v-if="hoveredRes.code && hoveredRes.code.length === 1"> ({{ hoveredRes.code }})</template> <b>{{ hoveredRes.authSeqId }}{{ hoveredRes.insCode }}</b><template v-if="hoveredRes.authSeqId !== hoveredRes.seqId"> <span class="tip-auth">[auth {{ hoveredRes.authSeqId }}]</span></template>
+        <b class="tip-accent">{{ hoveredRes.chainId || chains[0]?.id }}</b> | <b class="tip-accent">{{ hoveredRes.compId }}</b><template v-if="hoveredRes.code && hoveredRes.code.length === 1"> <span class="tip-sub">({{ hoveredRes.code }})</span></template> <b class="tip-accent">{{ hoveredRes.authSeqId }}{{ hoveredRes.insCode }}</b><template v-if="hoveredRes.authSeqId !== hoveredRes.seqId"> <span class="tip-auth">[auth {{ hoveredRes.authSeqId }}]</span></template>
       </div>
 
       <div class="float-bottom glass" :class="{ raised: barVisible }">
@@ -346,6 +346,8 @@ async function loadStructure() {
     await plugin.clear()
     chains.length = 0
     showSeq.value = false
+    hoveredRes.value = null
+    rangeStart = null
 
     if (props.pdbPath) {
       const text = await fetch(props.pdbPath).then(r => r.text())
@@ -1029,6 +1031,7 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle, currentTheme
   border: var(--glass-border);
   box-shadow: var(--glass-shadow);
 }
+.tip-accent { color: var(--accent-light); }
 .tip-sub { color: var(--tip-sub); margin-left: 8px; font-size: 10px; }
 .tip-auth { color: var(--tip-auth); font-size: 10px; }
 
