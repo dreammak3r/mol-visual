@@ -274,6 +274,7 @@ const styles = [
   grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-bottom: 32px;
+  grid-auto-rows: minmax(400px, auto);
 }
 
 @media (max-width: 1200px) {

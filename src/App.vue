@@ -7,6 +7,7 @@
           <router-link to="/" class="nav-link" exact-active-class="active">Home</router-link>
           <router-link to="/2d" class="nav-link" active-class="active">2D Comparison</router-link>
           <router-link to="/3d" class="nav-link" active-class="active">3D Comparison</router-link>
+          <router-link to="/test/molstar" class="nav-link" active-class="active">Mol* Test</router-link>
         </nav>
       </div>
     </header>

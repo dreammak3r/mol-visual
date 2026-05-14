@@ -23,6 +23,13 @@
           <p>3Dmol.js · Mol* · NGL Viewer</p>
           <span class="card-tag">3 frameworks</span>
         </router-link>
+
+        <router-link to="/test/molstar" class="nav-card">
+          <div class="card-icon">🔬</div>
+          <h3>Mol* Standalone</h3>
+          <p>PluginContext API · Vue UI</p>
+          <span class="card-tag">resizable</span>
+        </router-link>
       </div>
 
       <div class="molecules-preview">
@@ -67,7 +74,7 @@ import { molecules } from '../data/molecules.js'
 
 .cards-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   margin-bottom: 48px;
 }
