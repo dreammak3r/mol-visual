@@ -32,8 +32,12 @@
       </div>
       </Transition>
 
+      <Transition name="slide">
+        <div class="no-seq-toast glass" v-if="noSeqToast">No residue sequence data available</div>
+      </Transition>
+
       <div class="res-tooltip glass" v-if="hoveredRes" :style="{ top: tooltipTopVal + 'px' }">
-        <b class="tip-accent">{{ hoveredRes.chainId || chains[0]?.id }}</b> | <b class="tip-accent">{{ hoveredRes.compId }}</b><template v-if="hoveredRes.code && hoveredRes.code.length === 1"> <span class="tip-sub">({{ hoveredRes.code }})</span></template> <b class="tip-accent">{{ hoveredRes.authSeqId }}{{ hoveredRes.insCode }}</b><template v-if="hoveredRes.authSeqId !== hoveredRes.seqId"> <span class="tip-auth">[auth {{ hoveredRes.authSeqId }}]</span></template>
+        <b>{{ hoveredRes.chainId || chains[0]?.id }}</b> | <b class="tip-accent">{{ hoveredRes.compId }}</b><template v-if="hoveredRes.code && hoveredRes.code.length === 1"> <span class="tip-sub">({{ hoveredRes.code }})</span></template> <b>{{ hoveredRes.authSeqId }}{{ hoveredRes.insCode }}</b><template v-if="hoveredRes.authSeqId !== hoveredRes.seqId"> <span class="tip-auth">[auth {{ hoveredRes.authSeqId }}]</span></template>
       </div>
 
       <div class="float-bottom glass" :class="{ raised: barVisible }">
@@ -43,7 +47,7 @@
 
         <div class="bar-divider"></div>
 
-        <button class="bar-btn seq-toggle" :class="{ on: showSeq }" @click="showSeq = chains.length ? !showSeq : false" title="Toggle sequence panel">
+        <button class="bar-btn seq-toggle" :class="{ on: showSeq }" @click="toggleSeq" title="Toggle sequence panel">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
             <circle cx="6" cy="8" r="2.2"/><line x1="8.2" y1="8" x2="18" y2="8"/>
             <circle cx="6" cy="16" r="2.2"/><line x1="8.2" y1="16" x2="18" y2="16"/>
@@ -221,6 +225,8 @@ const themes = [
   },
 ]
 const showSeq = ref(false)
+const noSeqToast = ref(false)
+let noSeqTimer = null
 const chains = reactive([])
 const hoveredRes = ref(null)
 
@@ -471,6 +477,16 @@ async function switchStyle(id) {
     plugin.canvas3d?.requestDraw()
   } catch (e) {
     err.value = 'Switch style failed: ' + (e?.message || e)
+  }
+}
+
+function toggleSeq() {
+  if (chains.length) {
+    showSeq.value = !showSeq.value
+  } else {
+    noSeqToast.value = true
+    if (noSeqTimer) clearTimeout(noSeqTimer)
+    noSeqTimer = setTimeout(() => { noSeqToast.value = false }, 2000)
   }
 }
 
@@ -916,6 +932,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (noSeqTimer) clearTimeout(noSeqTimer)
   seqObserver?.disconnect()
   window.removeEventListener('resize', updateTooltipTop)
   if (plugin) {
@@ -934,6 +951,7 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle, currentTheme
   height: 100%;
   border-radius: 16px;
   overflow: hidden;
+  border-radius: 20px;
   background: var(--bg);
 }
 
@@ -963,13 +981,24 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle, currentTheme
   position: absolute; top: 10px; left: 10px; right: 10px;
   max-height: 96px; overflow: auto;
   padding: 6px 10px 10px;
-  border-radius: 14px;
+  border-radius: 16px;
   z-index: 9;
+}
+.no-seq-toast {
+  position: absolute; top: 10px;
+  left: 0; right: 0; margin: 0 auto;
+  width: fit-content;
+  padding: 10px 20px;
+  border-radius: 16px;
+  z-index: 12;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
 }
 .float-seq::-webkit-scrollbar { width: 4px; }
 .float-seq::-webkit-scrollbar-track { background: transparent; }
 .float-seq::-webkit-scrollbar-thumb {
-  background: transparent; border-radius: 2px; transition: background 0.3s;
+  background: transparent; border-radius: 4px; transition: background 0.3s;
 }
 .float-seq:hover::-webkit-scrollbar-thumb { background: var(--divider); }
 .float-seq::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
@@ -1000,7 +1029,7 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle, currentTheme
 }
 .residue {
   font-size: 11px; font-family: 'SF Mono', 'Cascadia Code', monospace;
-  padding: 1px 3px; border-radius: 3px; cursor: pointer;
+  padding: 1px 3px; border-radius: 4px; cursor: pointer;
   color: var(--text-secondary); line-height: 1.3;
   transition: background 0.1s, color 0.1s;
   min-width: 14px; text-align: center;
@@ -1018,7 +1047,7 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle, currentTheme
 .res-tooltip {
   position: absolute; right: 10px;
   padding: 5px 10px;
-  border-radius: 14px;
+  border-radius: 16px;
   z-index: 11;
   font-size: 11px; line-height: 1.5;
   white-space: nowrap;
@@ -1041,7 +1070,7 @@ defineExpose({ resetCamera, switchStyle, displayMode, currentStyle, currentTheme
   transform: translateX(-50%) translateY(50px);
   display: flex; align-items: center; gap: 4px;
   padding: 6px 10px;
-  border-radius: 14px;
+  border-radius: 16px;
   z-index: 10;
   white-space: nowrap;
   opacity: 0;
