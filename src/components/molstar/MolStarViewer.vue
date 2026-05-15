@@ -100,7 +100,7 @@ async function render() {
       })
       await viewer.loadStructureFromData(sdfData, 'sdf', { dataLabel: 'molecule' })
     } else if (props.smiles) {
-      const { getRDKitModule, smilesToMolblock } = await import('../utils/rdkit.js')
+      const { getRDKitModule, smilesToMolblock } = await import('../../utils/rdkit.js')
       const rdkit = await getRDKitModule()
       const molblock = smilesToMolblock(rdkit, props.smiles)
       const sdf = molblock + '$$$$\n'

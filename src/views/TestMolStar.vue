@@ -51,7 +51,7 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import MolStarCustom from '../components/MolStarCustom.vue'
+import MolStarCustom from '../components/molstar/MolStarCustom.vue'
 import { molecules, proteins } from '../data/molecules.js'
 
 const selectedMol = ref(molecules[0])

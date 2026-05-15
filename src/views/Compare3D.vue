@@ -139,8 +139,8 @@
 <script setup>
 import { ref } from 'vue'
 import ThreeDmolViewer from '../components/ThreeDmolViewer.vue'
-import MolStarViewer from '../components/MolStarViewer.vue'
-import MolStarCustom from '../components/MolStarCustom.vue'
+import MolStarViewer from '../components/molstar/MolStarViewer.vue'
+import MolStarCustom from '../components/molstar/MolStarCustom.vue'
 import { molecules, proteins } from '../data/molecules.js'
 
 const selectedMol = ref(molecules[0])

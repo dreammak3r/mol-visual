@@ -66,8 +66,8 @@ import { ref } from 'vue'
 import MoleculeSelector from '../components/MoleculeSelector.vue'
 import RdkitViewer from '../components/RdkitViewer.vue'
 import SmilesDrawerViewer from '../components/SmilesDrawerViewer.vue'
-import KetcherViewer from '../components/KetcherViewer.vue'
-import KetcherCustom from '../components/KetcherCustom.vue'
+import KetcherViewer from '../components/ketcher/KetcherViewer.vue'
+import KetcherCustom from '../components/ketcher/KetcherCustom.vue'
 import { molecules } from '../data/molecules.js'
 
 const selectedMol = ref(molecules[0])

@@ -20,7 +20,7 @@
 
 <script setup>
 import { ref, watch, onBeforeUnmount } from 'vue'
-import { getRDKitModule, smilesToMolblock } from '../utils/rdkit.js'
+import { getRDKitModule, smilesToMolblock } from '../../utils/rdkit.js'
 
 const props = defineProps({
   smiles: { type: String, required: true },

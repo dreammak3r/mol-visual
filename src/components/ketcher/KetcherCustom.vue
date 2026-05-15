@@ -30,7 +30,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { getRDKitModule, smilesToMolblock } from '../utils/rdkit.js'
+import { getRDKitModule, smilesToMolblock } from '../../utils/rdkit.js'
 import { MolSerializer } from 'ketcher-core'
 import { RenderStruct } from 'ketcher-core'
 
