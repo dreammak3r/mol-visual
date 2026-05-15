@@ -25,15 +25,15 @@ defineEmits(['update:modelValue'])
 
 <style scoped>
 .selector {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: flex; gap: 10px; flex-wrap: wrap;
   margin-bottom: 24px;
 }
 
 .mol-btn {
-  background: #1a1a30;
-  border: 1px solid #2a2a4a;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.55);
   border-radius: 10px;
   padding: 10px 18px;
   cursor: pointer;
@@ -42,31 +42,24 @@ defineEmits(['update:modelValue'])
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  color: #aaaacc;
+  color: #555;
+  font-family: inherit;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
 }
 
 .mol-btn:hover {
-  border-color: #4a4a7a;
-  background: #222240;
+  background: rgba(255,255,255,0.85);
+  border-color: #7c8cf8;
 }
 
 .mol-btn.selected {
-  border-color: #7c8cf8;
-  background: rgba(124, 140, 248, 0.12);
-  color: #c8d0ff;
+  background: rgba(74,106,240,0.12);
+  border-color: rgba(74,106,240,0.3);
+  color: #4a5af0;
 }
 
-.mol-name {
-  font-size: 14px;
-  font-weight: 600;
-}
+.mol-name { font-size: 14px; font-weight: 600; }
+.mol-formula { font-size: 12px; color: #888; }
 
-.mol-formula {
-  font-size: 12px;
-  color: #6a6a8a;
-}
-
-.mol-btn.selected .mol-formula {
-  color: #7c8cf8;
-}
+.mol-btn.selected .mol-formula { color: #7c8cf8; }
 </style>

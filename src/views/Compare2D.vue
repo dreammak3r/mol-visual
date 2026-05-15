@@ -27,9 +27,9 @@
         <tbody>
           <tr>
             <td>Engine</td>
-            <td>RDKit (C++ → WASM)</td>
+            <td>RDKit (C++ &rarr; WASM)</td>
             <td>Pure JavaScript</td>
-            <td>Indigo (C++ → WASM)</td>
+            <td>Indigo (C++ &rarr; WASM)</td>
           </tr>
           <tr>
             <td>Output</td>
@@ -78,20 +78,15 @@ const selectedMol = ref(molecules[0])
   margin: 0 auto;
 }
 
-.page-header {
-  margin-bottom: 20px;
-}
+.page-header { margin-bottom: 20px; }
 
 .page-header h2 {
-  font-size: 22px;
-  font-weight: 700;
-  color: #e8e8f8;
-  margin-bottom: 4px;
+  font-size: 22px; font-weight: 700;
+  color: #e8e8f8; margin-bottom: 4px;
 }
 
 .page-header p {
-  font-size: 14px;
-  color: #7a7a9a;
+  font-size: 14px; color: #7a7a9a;
 }
 
 .grid-3col {
@@ -102,46 +97,36 @@ const selectedMol = ref(molecules[0])
 }
 
 @media (max-width: 1100px) {
-  .grid-3col {
-    grid-template-columns: 1fr;
-  }
+  .grid-3col { grid-template-columns: 1fr; }
 }
 
 .info-table {
-  background: #16162a;
-  border: 1px solid #2a2a4a;
-  border-radius: 12px;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   padding: 20px 24px;
 }
 
 .info-table h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 14px;
-  color: #c0c0d0;
+  font-size: 16px; font-weight: 600;
+  margin-bottom: 14px; color: #4a5af0;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
 th {
-  text-align: left;
-  padding: 8px 12px;
-  color: #7c8cf8;
-  font-weight: 600;
-  border-bottom: 1px solid #2a2a4a;
+  text-align: left; padding: 8px 12px;
+  color: #7c8cf8; font-weight: 600;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 
 td {
-  padding: 8px 12px;
-  color: #aaaacc;
-  border-bottom: 1px solid #1e1e36;
+  padding: 8px 12px; color: #555;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
 }
 
-tr:last-child td {
-  border-bottom: none;
-}
+tr:last-child td { border-bottom: none; }
 </style>
