@@ -15,9 +15,4 @@ export default defineConfig({
     },
   ],
   define: { 'process.env': '({})' },
-  optimizeDeps: {
-    rolldownOptions: {
-      define: { 'process.env': '({})' },
-    },
-  },
 })

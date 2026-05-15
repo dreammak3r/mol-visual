@@ -30,11 +30,9 @@ defineEmits(['update:modelValue'])
 }
 
 .mol-btn {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.55);
-  border-radius: 10px;
+  background: #1a1a30;
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
   padding: 10px 18px;
   cursor: pointer;
   transition: all 0.2s;
@@ -42,24 +40,23 @@ defineEmits(['update:modelValue'])
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  color: #555;
+  color: #aaaacc;
   font-family: inherit;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
 }
 
 .mol-btn:hover {
-  background: rgba(255,255,255,0.85);
-  border-color: #7c8cf8;
+  border-color: #4a4a7a;
+  background: #222240;
 }
 
 .mol-btn.selected {
-  background: rgba(74,106,240,0.12);
-  border-color: rgba(74,106,240,0.3);
-  color: #4a5af0;
+  border-color: #7c8cf8;
+  background: rgba(124,140,248,0.12);
+  color: #c8d0ff;
 }
 
 .mol-name { font-size: 14px; font-weight: 600; }
-.mol-formula { font-size: 12px; color: #888; }
+.mol-formula { font-size: 12px; color: #6a6a8a; }
 
 .mol-btn.selected .mol-formula { color: #7c8cf8; }
 </style>

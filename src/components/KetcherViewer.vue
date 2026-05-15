@@ -1,38 +1,26 @@
 <template>
   <div class="mol-card">
     <div class="mol-card-header">
-      <span class="lib-name">Ketcher (Vue)</span>
-      <span class="lib-type">ketcher-core &middot; SVG output</span>
+      <span class="lib-name">Ketcher</span>
+      <span class="lib-type">WASM iframe &middot; Indigo engine</span>
     </div>
     <div class="mol-card-body">
-      <div v-if="loading" class="status">Loading Ketcher engine...</div>
-      <div v-else-if="error" class="status error">{{ error }}</div>
-      <div v-show="!loading && !error" ref="molContainer" class="mol-container"></div>
-    </div>
-    <div class="mol-card-toolbar" v-if="!loading && !error">
-      <button class="tool-btn" @click="resetView" title="Reset view">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 12a9 9 0 11-3-6.3" stroke-linecap="round"/><polyline points="20 5.7 23 5.7 23 8.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button class="tool-btn" @click="copySmiles" title="Copy SMILES">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-      </button>
-      <label class="tool-label">
-        <input type="checkbox" v-model="showLabels" @change="reRender" />
-        <span>Labels</span>
-      </label>
-      <label class="tool-label">
-        <input type="checkbox" v-model="aromaticCircles" @change="reRender" />
-        <span>Aromatic</span>
-      </label>
+      <div v-if="loading" class="status">Loading Ketcher standalone...</div>
+      <div v-if="error" class="status error">{{ error }}</div>
+      <iframe
+        v-show="!loading && !error"
+        ref="iframeRef"
+        :src="iframeSrc"
+        class="ketcher-frame"
+        @load="onFrameLoad"
+      ></iframe>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 import { getRDKitModule, smilesToMolblock } from '../utils/rdkit.js'
-import { MolSerializer } from 'ketcher-core'
-import { RenderStruct } from 'ketcher-core'
 
 const props = defineProps({
   smiles: { type: String, required: true },
@@ -41,140 +29,79 @@ const props = defineProps({
 
 const emit = defineEmits(['loaded', 'error'])
 
+const iframeRef = ref(null)
 const loading = ref(true)
 const error = ref('')
-const molContainer = ref(null)
-const showLabels = ref(true)
-const aromaticCircles = ref(true)
+let ketcherReady = false
+let checkInterval = null
 
-let currentStruct = null
+const iframeSrc = '/ketcher/standalone/index.html'
 
-function molblockToStruct(molblock) {
-  const serializer = new MolSerializer()
-  return serializer.deserialize(molblock)
-}
-
-function renderStruct() {
-  if (!molContainer.value || !currentStruct) return
-  molContainer.value.innerHTML = ''
-  RenderStruct.render(molContainer.value, currentStruct, {
-    autoScale: true,
-    autoScaleMargin: 10,
-    showAtomIds: false,
-    showBondIds: false,
-    showHalfBondIds: false,
-    showValenceWarnings: false,
-    atomColoring: true,
-    hideImplicitHydrogen: !showLabels.value,
-    carbonExplicitly: showLabels.value,
-    aromaticCircle: aromaticCircles.value,
-    showCharge: true,
-    showHydrogenLabels: 'off',
-    showValence: false,
-    font: 'Arial',
-    fontsz: 14,
-    fontszUnit: 'px',
-    bondLength: 40,
-    bondLengthUnit: 'px',
-    bondThickness: 2,
-    bondThicknessUnit: 'px',
-    viewOnlyMode: true,
-  })
-}
-
-async function render() {
-  error.value = ''
+async function setKetcherMolecule() {
+  if (!ketcherReady || !iframeRef.value) return
   try {
     const rdkit = await getRDKitModule()
     const molblock = smilesToMolblock(rdkit, props.smiles)
-    currentStruct = molblockToStruct(molblock)
-    loading.value = false
-    await nextTick()
-    renderStruct()
+    iframeRef.value.contentWindow.ketcher.setMolecule(molblock)
     emit('loaded')
   } catch (e) {
-    loading.value = false
-    error.value = e.message
+    error.value = 'Failed to set molecule: ' + e.message
     emit('error', error.value)
   }
 }
 
-function reRender() {
-  if (currentStruct) renderStruct()
-}
-
-function resetView() {
-  if (molContainer.value) {
-    const svg = molContainer.value.querySelector('svg')
-    if (svg) {
-      svg.setAttribute('viewBox', `0 0 380 280`)
+function tryInitKetcher() {
+  if (!iframeRef.value) return
+  try {
+    const win = iframeRef.value.contentWindow
+    if (win && win.ketcher && typeof win.ketcher.setMolecule === 'function') {
+      ketcherReady = true
+      loading.value = false
+      if (checkInterval) { clearInterval(checkInterval); checkInterval = null }
+      setKetcherMolecule()
     }
-  }
-  reRender()
+  } catch (_) {}
 }
 
-function copySmiles() {
-  navigator.clipboard.writeText(props.smiles).catch(() => {})
+function onFrameLoad() {
+  checkInterval = setInterval(tryInitKetcher, 300)
+  setTimeout(() => {
+    if (!ketcherReady) {
+      if (checkInterval) clearInterval(checkInterval)
+      loading.value = false
+      error.value = 'Ketcher init timed out (check console)'
+      emit('error', error.value)
+    }
+  }, 30000)
 }
 
-onMounted(() => render())
-onBeforeUnmount(() => {
-  if (molContainer.value) molContainer.value.innerHTML = ''
-  currentStruct = null
-})
+watch(() => props.smiles, () => { if (ketcherReady) setKetcherMolecule() })
 
-watch(() => props.smiles, () => render())
-
-defineExpose({ render, resetView })
+onBeforeUnmount(() => { if (checkInterval) clearInterval(checkInterval) })
 </script>
 
 <style scoped>
 .mol-card {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.55);
+  background: #16162a;
+  border: 1px solid #2a2a4a;
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   overflow: hidden;
 }
 .mol-card-header {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  background: #1c1c36;
+  border-bottom: 1px solid #2a2a4a;
 }
-.lib-name { font-weight: 600; font-size: 14px; color: #4a5af0; }
-.lib-type { font-size: 11px; color: #888; }
+.lib-name { font-weight: 600; font-size: 14px; color: #c8d0ff; }
+.lib-type { font-size: 11px; color: #6a6a8a; }
 .mol-card-body {
+  padding: 0;
   display: flex; align-items: center; justify-content: center;
-  min-height: 300px;
+  min-height: 380px;
   position: relative;
 }
-.mol-container {
-  display: flex; align-items: center; justify-content: center;
-  width: 100%; min-height: 300px;
-}
-.mol-container :deep(svg) { max-width: 100%; height: auto; }
-.mol-card-toolbar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px;
-  border-top: 1px solid rgba(0,0,0,0.06);
-  flex-wrap: wrap;
-}
-.tool-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px;
-  background: transparent; border: 1px solid transparent;
-  border-radius: 6px; cursor: pointer;
-  color: rgba(0,0,0,0.5); transition: all 0.15s;
-}
-.tool-btn:hover { background: rgba(0,0,0,0.06); color: #333; }
-.tool-label {
-  display: flex; align-items: center; gap: 4px;
-  font-size: 11px; color: #666; cursor: pointer;
-  user-select: none;
-}
-.tool-label input { margin: 0; }
+.ketcher-frame { width: 100%; height: 380px; border: none; }
 .status { color: #999; font-size: 14px; padding: 20px; }
 .status.error { color: #d43; }
 </style>

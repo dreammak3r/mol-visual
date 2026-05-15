@@ -7,7 +7,7 @@
     <div class="mol-card-body">
       <div v-if="loading" class="status">Loading RDKit WASM...</div>
       <div v-else-if="error" class="status error">{{ error }}</div>
-      <div v-else ref="svgContainer" class="svg-container" v-html="svg"></div>
+      <div v-else ref="svgContainer" class="svg-container" :style="{ '--label-display': showLabels ? '' : 'none' }" v-html="svg"></div>
     </div>
     <div class="mol-card-toolbar" v-if="!loading && !error">
       <label class="tool-btn toggle" :class="{ on: showLabels }">
@@ -48,17 +48,16 @@ async function render() {
   try {
     const rdkit = await getRDKitModule()
     loading.value = false
-    const mol = rdkit.get_mol(props.smiles)
+    let mol = rdkit.get_mol(props.smiles)
     if (!mol) throw new Error(`Cannot parse SMILES: ${props.smiles}`)
-    const drawer = new rdkit.MolDraw2DSVG(380, 280)
-    drawer.drawOptions().addStereoAnnotation = showLabels.value
-    drawer.drawOptions().flagCloseContactsTemplates = false
-    if (!kekulize.value) drawer.drawOptions().aromaticBonds = { ...drawer.drawOptions().aromaticBonds, kekulize: false }
-    drawer.drawMolecule(mol)
-    drawer.finishDrawing()
-    svg.value = drawer.getDrawingText()
+    if (kekulize.value) {
+      const k = rdkit.get_mol(props.smiles)
+      mol.delete()
+      k.kekulize()
+      mol = k
+    }
+    svg.value = mol.get_svg(380, 280)
     mol.delete()
-    drawer.delete()
     emit('loaded')
   } catch (e) {
     loading.value = false
@@ -79,21 +78,19 @@ defineExpose({ render })
 
 <style scoped>
 .mol-card {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.55);
+  background: #16162a;
+  border: 1px solid #2a2a4a;
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   overflow: hidden;
 }
 .mol-card-header {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  background: #1c1c36;
+  border-bottom: 1px solid #2a2a4a;
 }
-.lib-name { font-weight: 600; font-size: 14px; color: #4a5af0; }
-.lib-type { font-size: 11px; color: #888; }
+.lib-name { font-weight: 600; font-size: 14px; color: #c8d0ff; }
+.lib-type { font-size: 11px; color: #6a6a8a; }
 .mol-card-body {
   padding: 12px;
   display: flex; align-items: center; justify-content: center;
@@ -102,26 +99,27 @@ defineExpose({ render })
 .svg-container {
   display: flex; align-items: center; justify-content: center;
 }
-.svg-container :deep(svg) { max-width: 100%; height: auto; }
+.svg-container :deep(svg) { max-width: 100%; height: auto; background: #16162a; }
+.svg-container :deep(svg text) { display: var(--label-display, block); }
 .mol-card-toolbar {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 16px;
-  border-top: 1px solid rgba(0,0,0,0.06);
+  border-top: 1px solid #2a2a4a;
   flex-wrap: wrap;
 }
 .tool-btn {
   display: flex; align-items: center; gap: 4px;
   padding: 4px 10px; height: 28px;
   background: transparent; border: 1px solid transparent;
-  border-radius: 6px; cursor: pointer;
-  font-size: 11px; color: rgba(0,0,0,0.5);
+  border-radius: 12px; cursor: pointer;
+  font-size: 11px; color: #6a6a8a;
   font-family: inherit; transition: all 0.15s;
 }
-.tool-btn:hover { background: rgba(0,0,0,0.06); color: #333; }
+.tool-btn:hover { background: #222240; color: #c8d0ff; }
 .tool-btn.toggle.on {
-  background: rgba(74,106,240,0.1);
-  border-color: rgba(74,106,240,0.25);
-  color: #4a5af0;
+  background: rgba(124,140,248,0.12);
+  border-color: #7c8cf8;
+  color: #c8d0ff;
 }
 .tool-btn input { display: none; }
 .status { color: #999; font-size: 14px; }
