@@ -223,6 +223,8 @@ const renderOpts = {
   fontsz: 14, fontszUnit: 'px',
   bondLength: 40, bondLengthUnit: 'px',
   bondThickness: 2, bondThicknessUnit: 'px',
+  bondSpacing: 15, stereoBondWidth: 2, stereoBondWidthUnit: 'px',
+  selectionStyle: { fill: '#57FF8F', stroke: '#57FF8F', 'stroke-width': 2, 'fill-opacity': 0.5 },
   zoom: 1,
 }
 
@@ -261,10 +263,10 @@ function fitToStructure() {
 function reRender() {
   if (!render) return
   render.setMolecule(struct.clone())
-  if (bondStartId != null) {
-    render.ctab.setSelection({ atoms: [bondStartId] })
-  } else if (selection.atoms.length || selection.bonds.length) {
-    render.ctab.setSelection({ atoms: selection.atoms, bonds: selection.bonds })
+  const selAtoms = bondStartId != null ? [bondStartId, ...selection.atoms] : selection.atoms
+  const selBonds = selection.bonds
+  if (selAtoms.length || selBonds.length) {
+    render.ctab.setSelection({ atoms: selAtoms, bonds: selBonds })
   }
   applyHover()
 }
@@ -771,6 +773,10 @@ onBeforeUnmount(() => {
   try { if (render && render.paper && render.paper.remove) render.paper.remove() } catch {}
   render = null
   if (structService && structService.destroy) structService.destroy()
+})
+
+watch(tool, () => {
+  bondStartId = null
 })
 
 watch(() => props.smiles, async (v) => {
